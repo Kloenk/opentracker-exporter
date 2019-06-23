@@ -1,0 +1,7 @@
+[package]
+name = "opentracker-exporter"
+version = "0.1.0"
+authors = ["Kloenk <kloenk@kloenk.de>"]
+edition = "2018"
+
+[dependencies]
