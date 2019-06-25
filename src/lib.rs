@@ -214,10 +214,10 @@ impl Everything {
         ret.push_str(&format!(r#"
 # HELP {}_count count for varios things
 # TYPE {}_count gauge
-{}_count{{tracker="{}",name="{}"type="peers"}} {}
-{}_count{{tracker="{}",name="{}"type="seeds"}} {}
-{}_count{{tracker="{}",name="{}"type="completed"}} {}
-{}_count{{tracker="{}",name="{}"type="mutex_stall"}} {}"#, prefix, prefix,
+{}_count{{tracker="{}",name="{}",type="peers"}} {}
+{}_count{{tracker="{}",name="{}",type="seeds"}} {}
+{}_count{{tracker="{}",name="{}",type="completed"}} {}
+{}_count{{tracker="{}",name="{}",type="mutex_stall"}} {}"#, prefix, prefix,
         prefix, self.tracker_id, name, self.peers,
         prefix, self.tracker_id, name, self.seeds,
         prefix, self.tracker_id, name, self.completed,
