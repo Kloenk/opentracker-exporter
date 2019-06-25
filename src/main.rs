@@ -116,6 +116,8 @@ fn main() {
 
     if let Some(name) = &matches.value_of("host") {
         conf.name = name.to_string();
+    } else {
+        conf.name = conf.url.clone();
     }
 
     if let Some(name) = &matches.value_of("name") {
