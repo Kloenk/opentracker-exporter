@@ -47,6 +47,13 @@ fn main() {
                 .help("no to prefix metrics")
                 .value_name("NAME"),
         )
+        .arg(
+            Arg::with_name("host")
+                .short("H")
+                .long("hostname")
+                .help("set name attribute for prometheus tag")
+                .value_name("NAME")
+        )
         .subcommand(
             SubCommand::with_name("completion")
                 .about("create completions")
@@ -105,6 +112,10 @@ fn main() {
 
     if let Some(threads) = &matches.value_of("threads") {
         conf.threads = threads.parse().unwrap_or_else(|_| conf.threads);
+    }
+
+    if let Some(name) = &matches.value_of("host") {
+        conf.name = name.to_string();
     }
 
     if let Some(name) = &matches.value_of("name") {

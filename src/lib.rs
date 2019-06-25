@@ -29,6 +29,9 @@ pub struct Config {
 
     /// number of thread in threadpool
     pub threads: usize,
+
+    /// human readable name of tracker
+    pub name: String,
 }
 
 impl Config {
@@ -41,6 +44,7 @@ impl Config {
             interface: String::from("0.0.0.0"),
             prefix: String::from("opentracker"),
             threads: 8,
+            name: String::from("tracker"),  //FIXME: set to hostname
         }
     }
 
@@ -86,10 +90,11 @@ impl Config {
             let verbose = self.verbose;
             let url = self.url.clone();
             let prefix = self.prefix.clone();
+            let name = self.name.clone();
 
             // move stream to thread
             thread_pool.execute(move || {
-                handle(stream, verbose, url, &prefix);
+                handle(stream, verbose, url, &prefix, &name);
             });
         }
         Ok(())
@@ -97,7 +102,7 @@ impl Config {
 }
 
 /// function for processing of prometheus client
-fn handle(mut stream: TcpStream, verbose: u8, url: String, prefix: &str) {
+fn handle(mut stream: TcpStream, verbose: u8, url: String, prefix: &str, name: &str) {
     if verbose >= 3 {
         println!("Debug3: Connection established!");
     }
@@ -107,7 +112,7 @@ fn handle(mut stream: TcpStream, verbose: u8, url: String, prefix: &str) {
 
     //println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
 
-    let content = get_content(url, prefix);
+    let content = get_content(url, prefix, name);
 
     stream.write(format!(
         "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: {}\r\nContent-Type: text/plain; version=0.0.4\r\nDate: {}\r\n\r\n{}",
@@ -195,48 +200,49 @@ impl Everything {
             mutex_stall: 0,
         }
     }
-    pub fn get_string(&self, prefix: &str) -> String {
+    pub fn get_string(&self, prefix: &str, name: &str) -> String {
         let mut ret = String::new();
         ret.push_str(&format!(r#"# HELP {}_uptime uptime of the tracker
 # TYPE {}_uptime gauge
-{}_uptime{{tracker="{}"}} {}"#, prefix, prefix, prefix, self.tracker_id, self.uptime));
+{}_uptime{{tracker="{}",name="{}"}} {}"#, prefix, prefix, prefix, self.tracker_id, name, self.uptime));
         ret.push_str(&format!(r#"
 # HELP {}_torrents counts torrents on server
 # TYPE {}_torrents gauge
-{}_torrents{{tracker="{}",type="mutex"}} {}
-{}_torrents{{tracker="{}",type="iterator"}} {}"#, prefix, prefix, prefix, self.tracker_id,
-        self.torrents.mutex, prefix, self.tracker_id, self.torrents.iterator));
+{}_torrents{{tracker="{}",type="mutex",name="{}"}} {}
+{}_torrents{{tracker="{}",type="iterator",name="{}"}} {}"#, prefix, prefix, prefix, self.tracker_id, name,
+        self.torrents.mutex, prefix, self.tracker_id, name, self.torrents.iterator));
         ret.push_str(&format!(r#"
 # HELP {}_count count for varios things
 # TYPE {}_count gauge
-{}_count{{tracker="{}",type="peers"}} {}
-{}_count{{tracker="{}",type="seeds"}} {}
-{}_count{{tracker="{}",type="completed"}} {}
-{}_count{{tracker="{}",type="mutex_stall"}} {}"#, prefix, prefix, prefix, self.tracker_id, self.peers,
-        prefix, self.tracker_id, self.seeds,
-        prefix, self.tracker_id, self.completed,
-        prefix, self.tracker_id, self.mutex_stall));
+{}_count{{tracker="{}",name="{}"type="peers"}} {}
+{}_count{{tracker="{}",name="{}"type="seeds"}} {}
+{}_count{{tracker="{}",name="{}"type="completed"}} {}
+{}_count{{tracker="{}",name="{}"type="mutex_stall"}} {}"#, prefix, prefix,
+        prefix, self.tracker_id, name, self.peers,
+        prefix, self.tracker_id, name, self.seeds,
+        prefix, self.tracker_id, name, self.completed,
+        prefix, self.tracker_id, name, self.mutex_stall));
         ret.push_str(&format!(r#"
 # HELP {}_connections to the tracker
 # TYPE {}_connections gauge
-{}_connections{{tracker="{}",protocol="tcp",type="accept"}} {}
-{}_connections{{tracker="{}",protocol="tcp",type="announce"}} {}
-{}_connections{{tracker="{}",protocol="tcp",type="scrape"}} {}
-{}_connections{{tracker="{}",protocol="udp",type="overall"}} {}
-{}_connections{{tracker="{}",protocol="udp",type="connect"}} {}
-{}_connections{{tracker="{}",protocol="udp",type="announce"}} {}
-{}_connections{{tracker="{}",protocol="udp",type="scrape"}} {}
-{}_connections{{tracker="{}",protocol="udp",type="missmatch"}} {}
-{}_connections{{tracker="{}",type="livesync"}} {}"#, prefix, prefix,
-        prefix, self.tracker_id, self.connections.tcp_accept,
-        prefix, self.tracker_id, self.connections.tcp_announce,
-        prefix, self.tracker_id, self.connections.tcp_scrape,
-        prefix, self.tracker_id, self.connections.udp_overall,
-        prefix, self.tracker_id, self.connections.udp_connect,
-        prefix, self.tracker_id, self.connections.udp_announce,
-        prefix, self.tracker_id, self.connections.udp_scrape,
-        prefix, self.tracker_id, self.connections.udp_missmatch,
-        prefix, self.tracker_id, self.connections.livesync));
+{}_connections{{tracker="{}",name="{}",protocol="tcp",type="accept"}} {}
+{}_connections{{tracker="{}",name="{}",protocol="tcp",type="announce"}} {}
+{}_connections{{tracker="{}",name="{}",protocol="tcp",type="scrape"}} {}
+{}_connections{{tracker="{}",name="{}",protocol="udp",type="overall"}} {}
+{}_connections{{tracker="{}",name="{}",protocol="udp",type="connect"}} {}
+{}_connections{{tracker="{}",name="{}",protocol="udp",type="announce"}} {}
+{}_connections{{tracker="{}",name="{}",protocol="udp",type="scrape"}} {}
+{}_connections{{tracker="{}",name="{}",protocol="udp",type="missmatch"}} {}
+{}_connections{{tracker="{}",name="{}",type="livesync"}} {}"#, prefix, prefix,
+        prefix, self.tracker_id, name, self.connections.tcp_accept,
+        prefix, self.tracker_id, name, self.connections.tcp_announce,
+        prefix, self.tracker_id, name, self.connections.tcp_scrape,
+        prefix, self.tracker_id, name, self.connections.udp_overall,
+        prefix, self.tracker_id, name, self.connections.udp_connect,
+        prefix, self.tracker_id, name, self.connections.udp_announce,
+        prefix, self.tracker_id, name, self.connections.udp_scrape,
+        prefix, self.tracker_id, name, self.connections.udp_missmatch,
+        prefix, self.tracker_id, name, self.connections.livesync));
 
         // http codes
         ret.push_str(&format!(r#"
@@ -245,8 +251,8 @@ impl Everything {
 "#, prefix, prefix));
 
         for (key, value) in &self.http_error {
-            ret.push_str(&format!(r#"{}_http_codes{{tracker="{}",code="{}"}} {}
-"#, prefix, self.tracker_id, key, value));
+            ret.push_str(&format!(r#"{}_http_codes{{tracker="{}",name="{}"code="{}"}} {}
+"#, prefix, self.tracker_id, name, key, value));
         }
 
         ret.push_str(&format!(r#"
@@ -256,7 +262,7 @@ impl Everything {
     }
 }
 
-fn get_content(url: String, prefix: &str) -> String {
+fn get_content(url: String, prefix: &str, name: &str) -> String {
     let mut tracker_data = Everything::new();
     // get mode=everything
     if let Ok(mut stream) = TcpStream::connect(&url) {
@@ -349,7 +355,7 @@ fn get_content(url: String, prefix: &str) -> String {
         }
 
     }
-    tracker_data.get_string(prefix)
+    tracker_data.get_string(prefix, name)
 }
 
 fn indent(size: usize) -> String {
