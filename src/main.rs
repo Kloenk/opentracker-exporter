@@ -26,6 +26,27 @@ fn main() {
                 .help("set the port for the local webserver")
                 .value_name("PORT"),
         )
+        .arg(
+            Arg::with_name("interface")
+                .short("i")
+                .long("interface")
+                .help("set interface to listen on")
+                .value_name("ADDRESS"),
+        )
+        .arg(
+            Arg::with_name("threads")
+                .short("t")
+                .long("threads")
+                .help("set how many threads should be alocated for http workers")
+                .value_name("THREADS"),
+        )
+        .arg(
+            Arg::with_name("name")
+                .short("n")
+                .long("name")
+                .help("no to prefix metrics")
+                .value_name("NAME"),
+        )
         .subcommand(
             SubCommand::with_name("completion")
                 .about("create completions")
@@ -76,6 +97,18 @@ fn main() {
 
     if let Some(port) = &matches.value_of("port") {
         conf.port = port.parse().unwrap_or_else(|_| conf.port);
+    }
+
+    if let Some(interface) = &matches.value_of("interface") {
+        conf.interface = interface.to_string();
+    }
+
+    if let Some(threads) = &matches.value_of("threads") {
+        conf.threads = threads.parse().unwrap_or_else(|_| conf.threads);
+    }
+
+    if let Some(name) = &matches.value_of("name") {
+        conf.prefix = name.to_string();
     }
 
     if conf.verbose >= 1 {

@@ -6,3 +6,5 @@ edition = "2018"
 
 [dependencies]
 clap = {version = "2.33.0", features = ["color"]}
+httpdate = "0.3.2"
+xml-rs = "0.8"
