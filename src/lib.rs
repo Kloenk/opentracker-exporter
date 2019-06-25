@@ -251,7 +251,7 @@ impl Everything {
 "#, prefix, prefix));
 
         for (key, value) in &self.http_error {
-            ret.push_str(&format!(r#"{}_http_codes{{tracker="{}",name="{}"code="{}"}} {}
+            ret.push_str(&format!(r#"{}_http_codes{{tracker="{}",name="{}",code="{}"}} {}
 "#, prefix, self.tracker_id, name, key, value));
         }
 
