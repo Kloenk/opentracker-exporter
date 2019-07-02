@@ -4,6 +4,7 @@ use std::net::TcpStream;
 use std::process::exit;
 use std::vec::Vec;
 use std::collections::HashMap;
+use error::Error;
 
 /// thread library containing a thread pool
 pub mod threads;
@@ -49,7 +50,7 @@ impl Config {
     }
 
     /// execute application
-    pub fn run(mut self) -> Result<(), String> {
+    pub fn run(self) -> Result<(), String> {
         if self.verbose >= 1 {
             println!("Debug1: using opentracker stats on {}", self.url);
             println!(
@@ -94,7 +95,15 @@ impl Config {
 
             // move stream to thread
             thread_pool.execute(move || {
-                handle(stream, verbose, url, &prefix, &name);
+                handle(stream, verbose, url, &prefix, &name).unwrap_or_else(|err| {
+                    if verbose >= 2 {
+                        println!("Debug2: error hanling client: {}", err);
+                        ()
+                    }
+                });
+            }).unwrap_or_else(|err| {
+                eprintln!("faild to execute thread: {}", err);
+                ()
             });
         }
         Ok(())
@@ -102,25 +111,26 @@ impl Config {
 }
 
 /// function for processing of prometheus client
-fn handle(mut stream: TcpStream, verbose: u8, url: String, prefix: &str, name: &str) {
+fn handle(mut stream: TcpStream, verbose: u8, url: String, prefix: &str, name: &str) -> Result<(), Error> {
     if verbose >= 3 {
         println!("Debug3: Connection established!");
     }
     let mut buffer = [0; 512];
 
-    stream.read(&mut buffer).unwrap();
+    stream.read(&mut buffer)?;
 
     //println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
 
-    let content = get_content(url, prefix, name);
+    let content = get_content(url, prefix, name)?;
 
     stream.write(format!(
         "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: {}\r\nContent-Type: text/plain; version=0.0.4\r\nDate: {}\r\n\r\n{}",
         content.len(),
         httpdate::fmt_http_date(std::time::SystemTime::now()),
         content
-    ).as_bytes()).unwrap(); //fixme;
-    stream.flush();
+    ).as_bytes())?;
+    stream.flush()?;
+    Ok(())
 }
 
 // HTTP/1.1 200 OK
@@ -262,7 +272,7 @@ impl Everything {
     }
 }
 
-fn get_content(url: String, prefix: &str, name: &str) -> String {
+fn get_content(url: String, prefix: &str, name: &str) -> Result<String, Error> {
     let mut tracker_data = Everything::new();
     // get mode=everything
     if let Ok(mut stream) = TcpStream::connect(&url) {
@@ -270,29 +280,29 @@ fn get_content(url: String, prefix: &str, name: &str) -> String {
             "GET /stats?mode=everything HTTP/1.1\r\nHost: {}\r\nUser-Agent: opentracker-exporter/{}\r\nAccept: text/plain\r\n\r\n",
             url,
             env!("CARGO_PKG_VERSION")
-        ).as_bytes()).unwrap(); //FIXME: unwrap
-        stream.flush();
+        ).as_bytes())?;
+        stream.flush().unwrap_or_else(|_| ()); // discard errors
 
         let mut buffer = Vec::new();
-        stream.read_to_end(&mut buffer).unwrap();
+        stream.read_to_end(&mut buffer)?;
 
         let buffer = String::from_utf8_lossy(buffer.as_slice());
-        let (_, buffer) = buffer.split_at(buffer.find("\r\n\r\n").unwrap());
+        let (_, buffer) = buffer.split_at(buffer.find("\r\n\r\n").unwrap()); // fixme
         let buffer = buffer.trim().to_string();
 
-        use xml::reader::{EventReader, XmlEvent};
+        use xml::reader::{XmlEvent};
 
         let parser = xml::reader::EventReader::from_str(&buffer);
         let mut outer_name = String::new();
         let mut inner_name = String::new();
         let mut http_code = String::new();
 
-        let mut depth = 0;
+        //let mut depth = 0;
         for e in parser {
             match e {
                 Ok(XmlEvent::StartElement { name, attributes, .. }) => {
                     //println!("{}+{}", indent(depth), name);
-                    depth += 1;
+                    //depth += 1;
 
                     let name = name.to_string();
 
@@ -308,8 +318,8 @@ fn get_content(url: String, prefix: &str, name: &str) -> String {
                         outer_name = name;
                     }
                 },
-                Ok(XmlEvent::EndElement { name }) => {
-                    depth -= 1;
+                Ok(XmlEvent::EndElement { name: _ }) => {
+                    //depth -= 1;
                     //println!("{}-{}", indent(depth), name);
                 },
                 Ok(XmlEvent::Characters(data)) => {
@@ -355,14 +365,15 @@ fn get_content(url: String, prefix: &str, name: &str) -> String {
         }
 
     }
-    tracker_data.get_string(prefix, name)
+    Ok(tracker_data.get_string(prefix, name))
 }
 
+/*
 fn indent(size: usize) -> String {
     const INDENT: &'static str = "    ";
     (0..size).map(|_| INDENT)
              .fold(String::with_capacity(size*INDENT.len()), |r, s| r + s)
-}
+}*/
 
 // GET /stats?mode=everything HTTP/1.1
 // Host: tracker.yoshi210.com:1337
